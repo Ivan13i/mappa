@@ -92,12 +92,18 @@
 
         // Funzione per caricare dinamicamente tutte le stazioni dai file JSON
         function loadStationsData() {
+            // Qui inseriamo i link ai file JSON delle stazioni
             const stationsFiles = [
                 "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
                 "https://meteofontanamurata.altervista.org/scraping/tutte/aliaviapalermo.php"
             ];
         
             stationsFiles.forEach(stationFile => {
+                if (!stationFile) {
+                    console.error('URL della stazione non definito:', stationFile);
+                    return;  // Interrompi se stationFile è undefined
+                }
+        
                 const proxyUrl = "https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php?url=" + encodeURIComponent(stationFile);
                 fetch(proxyUrl)
                     .then(response => response.json())
@@ -106,7 +112,7 @@
                         
                         const { Nome, Latitudine, Longitudine, UrlDati, LinkSito, Immagine } = station;
         
-                        // Controllo aggiuntivo per assicurarsi che i dati meteo siano validi
+                        // Controllo aggiuntivo per assicurarsi che i dati siano validi
                         if (!Nome || !Latitudine || !Longitudine || !UrlDati || !LinkSito || !Immagine) {
                             return console.error('Dati incompleti per la stazione:', Nome);
                         }
