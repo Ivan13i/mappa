@@ -104,7 +104,7 @@
                     .then(station => {
                         const { Nome, Latitudine, Longitudine, UrlDati, LinkSito, Immagine } = station;
 
-                        // Carica i dati meteo da UrlDati
+                        // Carica i dati meteo da UrlDati tramite il proxy
                         fetchWeatherData(UrlDati).then(data => {
                             // Verifica se i dati sono disponibili
                             if (!data) return;
@@ -143,9 +143,15 @@
         }
 
         function fetchWeatherData(url) {
-            return fetch(url)
+            const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+            const fullUrl = proxyUrl + url;
+            
+            return fetch(fullUrl)
                 .then(response => response.json())
-                .catch(error => console.error('Errore nel recupero dei dati meteo:', error));
+                .catch(error => {
+                    console.error("Errore nel recupero dei dati meteo:", error);
+                    return null;
+                });
         }
 
         function getTemperatureColor(temperature) {
@@ -194,14 +200,6 @@
         function closeInfoPanel() {
             document.getElementById("info-panel").style.display = "none";
         }
-
-        const parameterSelect = document.getElementById("parameter-select");
-        let parameter = parameterSelect.value;
-
-        parameterSelect.addEventListener("change", function() {
-            parameter = parameterSelect.value;
-            updateMarkers(parameter);
-        });
 
         loadStationsData();  // Carica i dati delle stazioni
     </script>
