@@ -97,32 +97,33 @@
                 "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
                 "https://meteofontanamurata.altervista.org/scraping/tutte/aliaviapalermo.php"
             ];
-        
+
             stationsFiles.forEach(stationFile => {
-                if (!stationFile) {
-                    console.error('URL della stazione non definito:', stationFile);
-                    return;  // Interrompi se stationFile è undefined
-                }
-        
                 const proxyUrl = "https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php?url=" + encodeURIComponent(stationFile);
                 fetch(proxyUrl)
                     .then(response => response.json())
                     .then(station => {
-                        if (!station) return console.error('Stazione non trovata o dati non validi');
-                        
+                        console.log('Dati ricevuti per la stazione:', station);  // Log dei dati ricevuti
+            
+                        if (!station) {
+                            console.error('Stazione non trovata o dati non validi');
+                            return;
+                        }
+            
                         const { Nome, Latitudine, Longitudine, UrlDati, LinkSito, Immagine } = station;
-        
+            
                         // Controllo aggiuntivo per assicurarsi che i dati siano validi
                         if (!Nome || !Latitudine || !Longitudine || !UrlDati || !LinkSito || !Immagine) {
-                            return console.error('Dati incompleti per la stazione:', Nome);
+                            console.error('Dati incompleti per la stazione:', Nome);
+                            return;
                         }
-        
+            
                         // Carica i dati meteo da UrlDati tramite il proxy
                         fetchWeatherData(UrlDati).then(data => {
                             if (!data) return;
-        
+            
                             const coordinate = ol.proj.fromLonLat([Longitudine, Latitudine]);
-        
+            
                             const marker = new ol.Feature({
                                 geometry: new ol.geom.Point(coordinate),
                                 name: Nome,
@@ -131,7 +132,7 @@
                                 image: Immagine,
                                 data: data
                             });
-        
+            
                             marker.setStyle(new ol.style.Style({
                                 image: new ol.style.Circle({
                                     radius: 15,
@@ -145,14 +146,14 @@
                                     stroke: new ol.style.Stroke({ color: '#000', width: 2 })
                                 })
                             }));
-        
+            
                             markerLayer.getSource().addFeature(marker);
                         });
                     })
-                    .catch(error => console.error('Errore nel caricare i dati per la stazione:', error));
+                    .catch(error => {
+                        console.error('Errore nel caricare i dati per la stazione:', error);
+                    });
             });
-        }
-
 
         function fetchWeatherData(url) {
             const proxyUrl = "https://tuodominio.altervista.org/proxy.php?url=" + encodeURIComponent(url);
