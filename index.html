@@ -99,7 +99,7 @@
             ];
 
             stationsFiles.forEach(stationFile => {
-                const proxyUrl = "https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php" + encodeURIComponent(stationFile);
+                const proxyUrl = "https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php?url=" + encodeURIComponent(stationFile);
                 fetch(proxyUrl)
                     .then(response => response.json())
                     .then(station => {
