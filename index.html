@@ -99,7 +99,8 @@
             ];
 
             stationsFiles.forEach(stationFile => {
-                fetch(stationFile)
+                const proxyUrl = "https://tuodominio.altervista.org/proxy.php?url=" + encodeURIComponent(stationFile);
+                fetch(proxyUrl)
                     .then(response => response.json())
                     .then(station => {
                         const { Nome, Latitudine, Longitudine, UrlDati, LinkSito, Immagine } = station;
@@ -143,10 +144,9 @@
         }
 
         function fetchWeatherData(url) {
-            const proxyUrl = "https://cors-anywhere.herokuapp.com/";
-            const fullUrl = proxyUrl + url;
+            const proxyUrl = "https://tuodominio.altervista.org/proxy.php?url=" + encodeURIComponent(url);
             
-            return fetch(fullUrl)
+            return fetch(proxyUrl)
                 .then(response => response.json())
                 .catch(error => {
                     console.error("Errore nel recupero dei dati meteo:", error);
