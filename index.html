@@ -19,19 +19,30 @@
             height: 100%;
         }
 
-        .popup-content {
+        .popup {
+            background: white;
+            border: 1px solid black;
+            padding: 10px;
+            position: absolute;
+            z-index: 100;
+            display: none;
+            min-width: 200px;
             font-family: Arial, sans-serif;
-            font-size: 14px;
         }
 
-        .popup-content img {
-            max-width: 200px;
-            margin-bottom: 10px;
+        .popup h3 {
+            margin-top: 0;
+        }
+
+        .popup img {
+            max-width: 100%;
+            height: auto;
         }
     </style>
 </head>
 <body>
     <div id="mappa"></div>
+    <div id="popup" class="popup"></div>
 
     <script>
         // Inizializza la mappa
@@ -43,111 +54,99 @@
                 })
             ],
             view: new ol.View({
-                center: ol.proj.fromLonLat([13.7263, 37.7632]), // Coordinate di default
+                center: ol.proj.fromLonLat([13.7263, 37.7632]), // Centro mappa
                 zoom: 12
             })
         });
 
         // Layer per i marker
         const markerLayer = new ol.layer.Vector({
-            source: new ol.source.Vector()
+            source: new ol.source.Vector(),
         });
         map.addLayer(markerLayer);
 
-        // Popup per i marker
-        const popup = document.createElement('div');
-        popup.className = 'ol-popup';
-        popup.style.position = 'absolute';
-        popup.style.backgroundColor = '#fff';
-        popup.style.padding = '10px';
-        popup.style.borderRadius = '5px';
-        popup.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-        popup.style.display = 'none';
-        document.body.appendChild(popup);
+        // Popup
+        const popup = document.getElementById('popup');
 
-        map.on('pointermove', (e) => {
-            map.getTargetElement().style.cursor = map.hasFeatureAtPixel(e.pixel) ? 'pointer' : '';
+        map.on('pointermove', (event) => {
+            const pixel = map.getEventPixel(event.originalEvent);
+            const hit = map.hasFeatureAtPixel(pixel);
+            map.getTargetElement().style.cursor = hit ? 'pointer' : '';
         });
 
-        map.on('click', (e) => {
-            const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+        map.on('click', (event) => {
+            const feature = map.forEachFeatureAtPixel(event.pixel, (feature) => feature);
             if (feature) {
                 const data = feature.get('data');
-                showPopup(data, e.coordinate);
+                showPopup(data, event.coordinate);
             } else {
                 popup.style.display = 'none';
             }
         });
 
         function showPopup(data, coordinate) {
-            const content = `
-                <div class="popup-content">
-                    <h3>${data.Nome}</h3>
-                    <img src="${data.Immagine}" alt="${data.Nome}">
-                    <p>Altitudine: ${data.Altitudine} m</p>
-                    <p>Temperatura: ${data.Temperatura || 'N/A'}</p>
-                    <p><a href="${data.LinkSito}" target="_blank">Dettagli</a></p>
-                </div>
+            const [x, y] = ol.proj.toLonLat(coordinate);
+            popup.innerHTML = `
+                <h3>${data.Nome}</h3>
+                <img src="${data.Immagine}" alt="${data.Nome}">
+                <p>Altitudine: ${data.Altitudine || 'N/A'} m</p>
+                <p>Temperatura: ${data.Temperatura || 'N/A'}</p>
+                <a href="${data.LinkSito}" target="_blank">Dettagli</a>
             `;
-            popup.innerHTML = content;
-            popup.style.left = `${coordinate[0]}px`;
-            popup.style.top = `${coordinate[1]}px`;
             popup.style.display = 'block';
+            popup.style.left = `${event.pixel[0]}px`;
+            popup.style.top = `${event.pixel[1]}px`;
         }
 
-        // Funzione per caricare i dati della stazione
-        async function loadStationData(url) {
-            try {
-                const response = await fetch(url);
-                const station = await response.json();
-
-                // Verifica che i dati necessari siano presenti
-                if (!station.Nome || !station.Latitudine || !station.Longitudine) {
-                    console.error('Dati mancanti per la stazione:', station);
-                    return;
-                }
-
-                // Crea il marker
-                createMarker(station);
-            } catch (error) {
-                console.error('Errore nel caricamento dei dati:', error);
+        // Funzione per aggiungere un marker
+        function createMarker(data) {
+            if (!data.Nome || !data.Latitudine || !data.Longitudine) {
+                console.error('Dati incompleti per la stazione:', data);
+                return;
             }
-        }
-
-        function createMarker(station) {
-            const coordinate = ol.proj.fromLonLat([station.Longitudine, station.Latitudine]);
 
             const marker = new ol.Feature({
-                geometry: new ol.geom.Point(coordinate),
-                data: station
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([data.Longitudine, data.Latitudine])),
+                data
             });
 
-            // Stile del marker
             marker.setStyle(new ol.style.Style({
                 image: new ol.style.Circle({
-                    radius: 10,
-                    fill: new ol.style.Fill({ color: '#007bff' }),
-                    stroke: new ol.style.Stroke({ color: '#000', width: 2 })
+                    radius: 8,
+                    fill: new ol.style.Fill({ color: 'blue' }),
+                    stroke: new ol.style.Stroke({ color: 'white', width: 2 })
                 }),
                 text: new ol.style.Text({
-                    text: station.Nome,
+                    text: data.Nome,
                     font: '12px Arial',
-                    fill: new ol.style.Fill({ color: '#fff' }),
-                    stroke: new ol.style.Stroke({ color: '#000', width: 3 })
+                    fill: new ol.style.Fill({ color: '#000' }),
+                    offsetY: -15
                 })
             }));
 
             markerLayer.getSource().addFeature(marker);
         }
 
-        // URL dei file JSON delle stazioni
-        const stationUrls = [
-            "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
-            "https://meteofontanamurata.altervista.org/scraping/tutte/aliavpalermo.php"
-        ];
+        // Funzione per caricare i dati di tutte le stazioni
+        async function loadStations() {
+            const stationUrls = [
+                "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
+                "https://meteofontanamurata.altervista.org/scraping/tutte/aliavpalermo.php"
+            ];
 
-        // Carica i dati delle stazioni
-        stationUrls.forEach(loadStationData);
+            for (const url of stationUrls) {
+                try {
+                    const response = await fetch(url);
+                    const station = await response.json();
+                    createMarker(station);
+                } catch (error) {
+                    console.error(`Errore nel caricamento dei dati dalla stazione ${url}:`, error);
+                }
+            }
+        }
+
+        // Avvia il caricamento delle stazioni
+        loadStations();
     </script>
 </body>
 </html>
