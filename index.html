@@ -3,225 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mappa Dinamica con Dati Meteo</title>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/ol@latest/dist/ol.js"></script>
+    <title>Mappa Stazioni Meteo</title>
+    <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
     <style>
-        #map { width: 100%; height: 80vh; }
-        #menu-container {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 5;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        }
-        .info-panel {
-            position: absolute;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px;
-            border-radius: 5px;
-            z-index: 6;
-            width: 300px;
-            display: none;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        }
-        .info-panel button {
-            margin-top: 10px;
-            padding: 5px 10px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .info-panel img {
+        html, body {
+            margin: 0;
+            padding: 0;
             width: 100%;
-            height: auto;
-            margin-bottom: 10px;
-            border-radius: 5px;
+            height: 100%;
         }
-        .info-panel button:hover {
-            background-color: #0056b3;
+
+        #mappa {
+            width: 100%;
+            height: 100%;
+        }
+
+        .popup-content {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        .popup-content img {
+            max-width: 200px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="menu-container">
-        <label for="parameter-select">Seleziona Parametro: </label>
-        <select id="parameter-select">
-            <option value="Temperatura">Temperatura</option>
-            <option value="Vento">Vento</option>
-            <option value="Precipitazioni">Precipitazioni</option>
-        </select>
-    </div>
-
-    <div id="map"></div>
-
-    <div id="info-panel" class="info-panel">
-        <h3>Dettagli della Stazione</h3>
-        <div id="info-content"></div>
-        <button onclick="closeInfoPanel()">Chiudi</button>
-    </div>
+    <div id="mappa"></div>
 
     <script>
-        const mapboxToken = 'pk.eyJ1IjoiaXZhbjEzIiwiYSI6ImNsem1tcWIyeTBmeXcya3I0Mm9iMnduZ2kifQ.ohKNs_jXuoP88ApihpaxXA';
-
-        // Creazione della mappa con OpenLayers
+        // Inizializza la mappa
         const map = new ol.Map({
-            target: 'map',
+            target: 'mappa',
             layers: [
                 new ol.layer.Tile({
-                    source: new ol.source.XYZ({
-                        url: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
-                        maxZoom: 19
-                    })
+                    source: new ol.source.OSM()
                 })
             ],
             view: new ol.View({
-                center: ol.proj.fromLonLat([13.5, 37.6]),  // Centro in Sicilia
-                zoom: 8
+                center: ol.proj.fromLonLat([13.7263, 37.7632]), // Coordinate di default
+                zoom: 12
             })
         });
 
-        // Livello per i marker
+        // Layer per i marker
         const markerLayer = new ol.layer.Vector({
             source: new ol.source.Vector()
         });
         map.addLayer(markerLayer);
 
-        // Funzione per caricare i dati delle stazioni
-        function loadStationsData() {
-            const stationsFiles = [
-                "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
-                "https://meteofontanamurata.altervista.org/scraping/tutte/aliaviapalermo.php"
-            ];
+        // Popup per i marker
+        const popup = document.createElement('div');
+        popup.className = 'ol-popup';
+        popup.style.position = 'absolute';
+        popup.style.backgroundColor = '#fff';
+        popup.style.padding = '10px';
+        popup.style.borderRadius = '5px';
+        popup.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+        popup.style.display = 'none';
+        document.body.appendChild(popup);
 
-            stationsFiles.forEach(stationFile => {
-                const proxyUrl = `https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php?url=${encodeURIComponent(stationFile)}`;
-                fetch(proxyUrl)
-                    .then(response => response.json())
-                    .then(station => {
-                        if (!station) {
-                            console.error('Dati stazione non validi:', stationFile);
-                            return;
-                        }
-                        createMarker(station);
-                    })
-                    .catch(error => console.error('Errore nel caricamento della stazione:', error));
-            });
-        }
-
-        // Funzione per creare un marker
-        function createMarker(station) {
-            const { Nome, Latitudine, Longitudine, UrlDati, LinkSito, Immagine } = station;
-
-            // Controllo validità dati
-            if (!Nome || !Latitudine || !Longitudine || !UrlDati || !LinkSito || !Immagine) {
-                console.error('Dati incompleti per la stazione:', station);
-                return;
-            }
-
-            // Caricamento dati meteo
-            fetchWeatherData(UrlDati).then(data => {
-                if (!data) return;
-
-                const coordinate = ol.proj.fromLonLat([Longitudine, Latitudine]);
-
-                const marker = new ol.Feature({
-                    geometry: new ol.geom.Point(coordinate),
-                    name: Nome,
-                    link: LinkSito,
-                    image: Immagine,
-                    data: data
-                });
-
-                marker.setStyle(new ol.style.Style({
-                    image: new ol.style.Circle({
-                        radius: 15,
-                        fill: new ol.style.Fill({ color: getTemperatureColor(data.Temperatura) }),
-                        stroke: new ol.style.Stroke({ color: '#000', width: 2 })
-                    }),
-                    text: new ol.style.Text({
-                        text: `${data.Temperatura || "N/A"}°C`,
-                        font: 'bold 14px Arial',
-                        fill: new ol.style.Fill({ color: '#fff' }),
-                        stroke: new ol.style.Stroke({ color: '#000', width: 2 })
-                    })
-                }));
-
-                markerLayer.getSource().addFeature(marker);
-            });
-        }
-
-        // Recupera i dati meteo dal file JSON
-        function fetchWeatherData(url) {
-            const proxyUrl = `https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php?url=${encodeURIComponent(url)}`;
-            return fetch(proxyUrl)
-                .then(response => response.json())
-                .catch(error => {
-                    console.error('Errore nel recupero dei dati meteo:', error);
-                    return null;
-                });
-        }
-
-        // Colore in base alla temperatura
-        function getTemperatureColor(temperature) {
-            if (temperature <= -15) return '#800080'; // Viola
-            if (temperature <= -1) return '#00FFFF'; // Celeste
-            if (temperature <= 6) return '#008000'; // Verde
-            if (temperature <= 21) return '#FFFF00'; // Giallo
-            if (temperature <= 26) return '#FFA500'; // Arancione
-            if (temperature <= 33) return '#FF0000'; // Rosso
-            return '#8B0000'; // Rosso scuro
-        }
-
-        // Mostra pannello informazioni
-        function openInfoPanel(coordinate, name, data, link, image) {
-            const panel = document.getElementById("info-panel");
-            const content = document.getElementById("info-content");
-
-            const pixel = map.getPixelFromCoordinate(coordinate); // Converti coordinate in pixel
-            panel.style.left = `${pixel[0] + 15}px`;
-            panel.style.top = `${pixel[1] - 100}px`;
-
-            content.innerHTML = `
-                <strong>${name}</strong><br>
-                <p>Temperatura: ${data.Temperatura || "N/A"}</p>
-                <p>Umidità: ${data.Umidità || "N/A"}</p>
-                <p>Vento: ${data.Vento || "N/A"}</p>
-                <p>Precipitazioni: ${data["Rate Rain"] || "N/A"}</p>
-                <p><a href="${link}" target="_blank">Vai al sito della stazione</a></p>
-                <img src="${image}" alt="Immagine Stazione">
-            `;
-
-            panel.style.display = "block";
-        }
-
-        function closeInfoPanel() {
-            document.getElementById("info-panel").style.display = "none";
-        }
-
-        // Evento di click sui marker
-        map.on('click', function(event) {
-            map.forEachFeatureAtPixel(event.pixel, function(feature) {
-                const data = feature.get('data');
-                const name = feature.get('name');
-                const link = feature.get('link');
-                const image = feature.get('image');
-                const coordinate = feature.getGeometry().getCoordinates();
-
-                if (data && name) {
-                    openInfoPanel(coordinate, name, data, link, image);
-                }
-            });
+        map.on('pointermove', (e) => {
+            map.getTargetElement().style.cursor = map.hasFeatureAtPixel(e.pixel) ? 'pointer' : '';
         });
 
-        // Caricamento delle stazioni
-        loadStationsData();
+        map.on('click', (e) => {
+            const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+            if (feature) {
+                const data = feature.get('data');
+                showPopup(data, e.coordinate);
+            } else {
+                popup.style.display = 'none';
+            }
+        });
+
+        function showPopup(data, coordinate) {
+            const content = `
+                <div class="popup-content">
+                    <h3>${data.Nome}</h3>
+                    <img src="${data.Immagine}" alt="${data.Nome}">
+                    <p>Altitudine: ${data.Altitudine} m</p>
+                    <p>Temperatura: ${data.Temperatura || 'N/A'}</p>
+                    <p><a href="${data.LinkSito}" target="_blank">Dettagli</a></p>
+                </div>
+            `;
+            popup.innerHTML = content;
+            popup.style.left = `${coordinate[0]}px`;
+            popup.style.top = `${coordinate[1]}px`;
+            popup.style.display = 'block';
+        }
+
+        // Funzione per caricare i dati della stazione
+        async function loadStationData(url) {
+            try {
+                const response = await fetch(url);
+                const station = await response.json();
+
+                // Verifica che i dati necessari siano presenti
+                if (!station.Nome || !station.Latitudine || !station.Longitudine) {
+                    console.error('Dati mancanti per la stazione:', station);
+                    return;
+                }
+
+                // Crea il marker
+                createMarker(station);
+            } catch (error) {
+                console.error('Errore nel caricamento dei dati:', error);
+            }
+        }
+
+        function createMarker(station) {
+            const coordinate = ol.proj.fromLonLat([station.Longitudine, station.Latitudine]);
+
+            const marker = new ol.Feature({
+                geometry: new ol.geom.Point(coordinate),
+                data: station
+            });
+
+            // Stile del marker
+            marker.setStyle(new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 10,
+                    fill: new ol.style.Fill({ color: '#007bff' }),
+                    stroke: new ol.style.Stroke({ color: '#000', width: 2 })
+                }),
+                text: new ol.style.Text({
+                    text: station.Nome,
+                    font: '12px Arial',
+                    fill: new ol.style.Fill({ color: '#fff' }),
+                    stroke: new ol.style.Stroke({ color: '#000', width: 3 })
+                })
+            }));
+
+            markerLayer.getSource().addFeature(marker);
+        }
+
+        // URL dei file JSON delle stazioni
+        const stationUrls = [
+            "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
+            "https://meteofontanamurata.altervista.org/scraping/tutte/aliavpalermo.php"
+        ];
+
+        // Carica i dati delle stazioni
+        stationUrls.forEach(loadStationData);
     </script>
 </body>
 </html>
-
