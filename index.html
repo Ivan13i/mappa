@@ -16,6 +16,7 @@
             padding: 10px;
             border-radius: 5px;
             z-index: 5;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
         .info-panel {
             position: absolute;
@@ -68,7 +69,8 @@
     <script>
         const mapboxToken = 'pk.eyJ1IjoiaXZhbjEzIiwiYSI6ImNsem1tcWIyeTBmeXcya3I0Mm9iMnduZ2kifQ.ohKNs_jXuoP88ApihpaxXA';
 
-        var map = new ol.Map({
+        // Creazione della mappa con OpenLayers
+        const map = new ol.Map({
             target: 'map',
             layers: [
                 new ol.layer.Tile({
@@ -84,123 +86,112 @@
             })
         });
 
-        var markerLayer = new ol.layer.Vector({
+        // Livello per i marker
+        const markerLayer = new ol.layer.Vector({
             source: new ol.source.Vector()
         });
-
         map.addLayer(markerLayer);
 
-        // Funzione per caricare dinamicamente tutte le stazioni dai file JSON
+        // Funzione per caricare i dati delle stazioni
         function loadStationsData() {
-            // Qui inseriamo i link ai file JSON delle stazioni
             const stationsFiles = [
                 "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
                 "https://meteofontanamurata.altervista.org/scraping/tutte/aliaviapalermo.php"
             ];
 
             stationsFiles.forEach(stationFile => {
-                const proxyUrl = "https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php?url=" + encodeURIComponent(stationFile);
+                const proxyUrl = `https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php?url=${encodeURIComponent(stationFile)}`;
                 fetch(proxyUrl)
                     .then(response => response.json())
                     .then(station => {
-                        console.log('Dati ricevuti per la stazione:', station);  // Log dei dati ricevuti
-            
                         if (!station) {
-                            console.error('Stazione non trovata o dati non validi');
+                            console.error('Dati stazione non validi:', stationFile);
                             return;
                         }
-            
-                        const { Nome, Latitudine, Longitudine, UrlDati, LinkSito, Immagine } = station;
-            
-                        // Controllo aggiuntivo per assicurarsi che i dati siano validi
-                        if (!Nome || !Latitudine || !Longitudine || !UrlDati || !LinkSito || !Immagine) {
-                            console.error('Dati incompleti per la stazione:', Nome);
-                            return;
-                        }
-            
-                        // Carica i dati meteo da UrlDati tramite il proxy
-                        fetchWeatherData(UrlDati).then(data => {
-                            if (!data) return;
-            
-                            const coordinate = ol.proj.fromLonLat([Longitudine, Latitudine]);
-            
-                            const marker = new ol.Feature({
-                                geometry: new ol.geom.Point(coordinate),
-                                name: Nome,
-                                value: parseFloat(data["Temperatura"]),
-                                link: LinkSito,
-                                image: Immagine,
-                                data: data
-                            });
-            
-                            marker.setStyle(new ol.style.Style({
-                                image: new ol.style.Circle({
-                                    radius: 15,
-                                    fill: new ol.style.Fill({ color: getTemperatureColor(parseFloat(data["Temperatura"])) }),
-                                    stroke: new ol.style.Stroke({ color: '#000', width: 2 })
-                                }),
-                                text: new ol.style.Text({
-                                    text: data["Temperatura"] ? data["Temperatura"].split(" ")[0] : "N/A",
-                                    font: 'bold 16px Arial',
-                                    fill: new ol.style.Fill({ color: '#fff' }),
-                                    stroke: new ol.style.Stroke({ color: '#000', width: 2 })
-                                })
-                            }));
-            
-                            markerLayer.getSource().addFeature(marker);
-                        });
+                        createMarker(station);
                     })
-                    .catch(error => {
-                        console.error('Errore nel caricare i dati per la stazione:', error);
-                    });
+                    .catch(error => console.error('Errore nel caricamento della stazione:', error));
             });
+        }
 
+        // Funzione per creare un marker
+        function createMarker(station) {
+            const { Nome, Latitudine, Longitudine, UrlDati, LinkSito, Immagine } = station;
+
+            // Controllo validità dati
+            if (!Nome || !Latitudine || !Longitudine || !UrlDati || !LinkSito || !Immagine) {
+                console.error('Dati incompleti per la stazione:', station);
+                return;
+            }
+
+            // Caricamento dati meteo
+            fetchWeatherData(UrlDati).then(data => {
+                if (!data) return;
+
+                const coordinate = ol.proj.fromLonLat([Longitudine, Latitudine]);
+
+                const marker = new ol.Feature({
+                    geometry: new ol.geom.Point(coordinate),
+                    name: Nome,
+                    link: LinkSito,
+                    image: Immagine,
+                    data: data
+                });
+
+                marker.setStyle(new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 15,
+                        fill: new ol.style.Fill({ color: getTemperatureColor(data.Temperatura) }),
+                        stroke: new ol.style.Stroke({ color: '#000', width: 2 })
+                    }),
+                    text: new ol.style.Text({
+                        text: `${data.Temperatura || "N/A"}°C`,
+                        font: 'bold 14px Arial',
+                        fill: new ol.style.Fill({ color: '#fff' }),
+                        stroke: new ol.style.Stroke({ color: '#000', width: 2 })
+                    })
+                }));
+
+                markerLayer.getSource().addFeature(marker);
+            });
+        }
+
+        // Recupera i dati meteo dal file JSON
         function fetchWeatherData(url) {
-            const proxyUrl = "https://tuodominio.altervista.org/proxy.php?url=" + encodeURIComponent(url);
-            
+            const proxyUrl = `https://meteofontanamurata.altervista.org/scraping/tutte/proxy.php?url=${encodeURIComponent(url)}`;
             return fetch(proxyUrl)
                 .then(response => response.json())
                 .catch(error => {
-                    console.error("Errore nel recupero dei dati meteo:", error);
+                    console.error('Errore nel recupero dei dati meteo:', error);
                     return null;
                 });
         }
 
+        // Colore in base alla temperatura
         function getTemperatureColor(temperature) {
-            if (temperature <= 5) return '#1e90ff';
-            if (temperature <= 15) return '#ffcc00';
-            if (temperature <= 25) return '#ff6347';
-            return '#ff0000';
+            if (temperature <= -15) return '#800080'; // Viola
+            if (temperature <= -1) return '#00FFFF'; // Celeste
+            if (temperature <= 6) return '#008000'; // Verde
+            if (temperature <= 21) return '#FFFF00'; // Giallo
+            if (temperature <= 26) return '#FFA500'; // Arancione
+            if (temperature <= 33) return '#FF0000'; // Rosso
+            return '#8B0000'; // Rosso scuro
         }
 
-        map.on('click', function(event) {
-            map.forEachFeatureAtPixel(event.pixel, function(feature) {
-                const data = feature.get('data');
-                const name = feature.get('name');
-                const link = feature.get('link');
-                const image = feature.get('image');
-                const coordinate = feature.getGeometry().getCoordinates();
-                if (data && name) {
-                    openInfoPanel(coordinate, name, data, link, image);
-                }
-            });
-        });
-
+        // Mostra pannello informazioni
         function openInfoPanel(coordinate, name, data, link, image) {
             const panel = document.getElementById("info-panel");
             const content = document.getElementById("info-content");
 
-            const pixel = map.getPixelFromCoordinate(coordinate); // Converte coordinate in pixel
+            const pixel = map.getPixelFromCoordinate(coordinate); // Converti coordinate in pixel
             panel.style.left = `${pixel[0] + 15}px`;
             panel.style.top = `${pixel[1] - 100}px`;
 
             content.innerHTML = `
                 <strong>${name}</strong><br>
-                <p>Temperatura: ${data["Temperatura"] || "N/A"}</p>
-                <p>Temperatura Max: ${data["Temperatura Max"] || "N/A"}</p>
-                <p>Temperatura Min: ${data["Temperatura Min"] || "N/A"}</p>
-                <p>Umidità: ${data["Umidità"] || "N/A"}</p>
-                <p>Vento: ${data["Vento"] || "N/A"}</p>
+                <p>Temperatura: ${data.Temperatura || "N/A"}</p>
+                <p>Umidità: ${data.Umidità || "N/A"}</p>
+                <p>Vento: ${data.Vento || "N/A"}</p>
                 <p>Precipitazioni: ${data["Rate Rain"] || "N/A"}</p>
                 <p><a href="${link}" target="_blank">Vai al sito della stazione</a></p>
                 <img src="${image}" alt="Immagine Stazione">
@@ -213,7 +204,23 @@
             document.getElementById("info-panel").style.display = "none";
         }
 
-        loadStationsData();  // Carica i dati delle stazioni
+        // Evento di click sui marker
+        map.on('click', function(event) {
+            map.forEachFeatureAtPixel(event.pixel, function(feature) {
+                const data = feature.get('data');
+                const name = feature.get('name');
+                const link = feature.get('link');
+                const image = feature.get('image');
+                const coordinate = feature.getGeometry().getCoordinates();
+
+                if (data && name) {
+                    openInfoPanel(coordinate, name, data, link, image);
+                }
+            });
+        });
+
+        // Caricamento delle stazioni
+        loadStationsData();
     </script>
 </body>
 </html>
