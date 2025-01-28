@@ -4,149 +4,134 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mappa Stazioni Meteo</title>
-    <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.16.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.16.1/mapbox-gl.css" rel="stylesheet">
     <style>
-        html, body {
+        body {
             margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        #mappa {
-            width: 100%;
-            height: 100%;
-        }
-
-        .popup {
-            background: white;
-            border: 1px solid black;
-            padding: 10px;
-            position: absolute;
-            z-index: 100;
-            display: none;
-            min-width: 200px;
+            display: flex;
+            height: 100vh;
             font-family: Arial, sans-serif;
         }
 
-        .popup h3 {
+        #menu {
+            width: 300px;
+            background: #f8f9fa;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        #menu h2 {
             margin-top: 0;
         }
 
-        .popup img {
-            max-width: 100%;
-            height: auto;
+        #mappa {
+            flex-grow: 1;
+        }
+
+        .stazione {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fff;
+        }
+
+        .stazione h3 {
+            margin: 0 0 5px;
+        }
+
+        .stazione img {
+            width: 100%;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        .popup {
+            font-size: 12px;
+            padding: 5px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
+    <div id="menu">
+        <h2>Stazioni Meteo</h2>
+        <div id="lista-stazioni"></div>
+    </div>
     <div id="mappa"></div>
-    <div id="popup" class="popup"></div>
 
     <script>
-        // Inizializza la mappa
-        const map = new ol.Map({
-            target: 'mappa',
-            layers: [
-                new ol.layer.Tile({
-                    source: new ol.source.OSM()
-                })
-            ],
-            view: new ol.View({
-                center: ol.proj.fromLonLat([13.7263, 37.7632]), // Centro mappa
-                zoom: 12
-            })
+        // Configurazione Mapbox
+        mapboxgl.accessToken = 'INSERISCI_IL_TUO_ACCESS_TOKEN_MAPBOX';
+        const mappa = new mapboxgl.Map({
+            container: 'mappa',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [13.7263, 37.7632], // Coordinate iniziali
+            zoom: 12
         });
 
-        // Layer per i marker
-        const markerLayer = new ol.layer.Vector({
-            source: new ol.source.Vector(),
-        });
-        map.addLayer(markerLayer);
-
-        // Popup
-        const popup = document.getElementById('popup');
-
-        map.on('pointermove', (event) => {
-            const pixel = map.getEventPixel(event.originalEvent);
-            const hit = map.hasFeatureAtPixel(pixel);
-            map.getTargetElement().style.cursor = hit ? 'pointer' : '';
-        });
-
-        map.on('click', (event) => {
-            const feature = map.forEachFeatureAtPixel(event.pixel, (feature) => feature);
-            if (feature) {
-                const data = feature.get('data');
-                showPopup(data, event.coordinate);
-            } else {
-                popup.style.display = 'none';
+        // Lista delle stazioni meteo (può essere caricata dinamicamente da un file o da un server)
+        const stazioni = [
+            {
+                Nome: "Alia Chianc.",
+                Latitudine: 37.7632,
+                Longitudine: 13.7263,
+                Altitudine: 710,
+                UrlDati: "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
+                LinkSito: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/stazioni-meteo/stazione-di-alia-contrada-chianchitelle/",
+                Immagine: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/wp-content/uploads/2024/08/alia-cda-chianchitelle-1536x2048.jpg"
+            },
+            {
+                Nome: "Alia V. Palermo",
+                Latitudine: 37.765,
+                Longitudine: 13.7,
+                Altitudine: 640,
+                UrlDati: "https://meteofontanamurata.altervista.org/scraping/tutte/aliavpalermo.php",
+                LinkSito: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/stazioni-meteo/stazione-di-alia-via-palermo/",
+                Immagine: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/wp-content/uploads/2024/08/alia-via-palermo-1536x2048.jpg"
             }
-        });
+        ];
 
-        function showPopup(data, coordinate) {
-            const [x, y] = ol.proj.toLonLat(coordinate);
-            popup.innerHTML = `
-                <h3>${data.Nome}</h3>
-                <img src="${data.Immagine}" alt="${data.Nome}">
-                <p>Altitudine: ${data.Altitudine || 'N/A'} m</p>
-                <p>Temperatura: ${data.Temperatura || 'N/A'}</p>
-                <a href="${data.LinkSito}" target="_blank">Dettagli</a>
+        // Crea i marker e aggiungili alla mappa
+        stazioni.forEach(stazione => {
+            // Aggiungi un marker
+            const marker = new mapboxgl.Marker()
+                .setLngLat([stazione.Longitudine, stazione.Latitudine])
+                .setPopup(
+                    new mapboxgl.Popup({ offset: 25 }) // Popup per il marker
+                        .setHTML(`
+                            <h3>${stazione.Nome}</h3>
+                            <p>Altitudine: ${stazione.Altitudine} m</p>
+                            <a href="${stazione.LinkSito}" target="_blank">Dettagli</a>
+                        `)
+                )
+                .addTo(mappa);
+
+            // Aggiungi la stazione al menu laterale
+            const stazioneElemento = document.createElement('div');
+            stazioneElemento.className = 'stazione';
+            stazioneElemento.innerHTML = `
+                <h3>${stazione.Nome}</h3>
+                <img src="${stazione.Immagine}" alt="${stazione.Nome}">
+                <p>Altitudine: ${stazione.Altitudine} m</p>
+                <p><a href="${stazione.LinkSito}" target="_blank">Dettagli</a></p>
+                <button onclick="vaiAllaStazione(${stazione.Latitudine}, ${stazione.Longitudine})">Vai alla stazione</button>
             `;
-            popup.style.display = 'block';
-            popup.style.left = `${event.pixel[0]}px`;
-            popup.style.top = `${event.pixel[1]}px`;
-        }
+            document.getElementById('lista-stazioni').appendChild(stazioneElemento);
+        });
 
-        // Funzione per aggiungere un marker
-        function createMarker(data) {
-            if (!data.Nome || !data.Latitudine || !data.Longitudine) {
-                console.error('Dati incompleti per la stazione:', data);
-                return;
-            }
-
-            const marker = new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat([data.Longitudine, data.Latitudine])),
-                data
+        // Funzione per spostare la mappa su una specifica stazione
+        function vaiAllaStazione(lat, lon) {
+            mappa.flyTo({
+                center: [lon, lat],
+                zoom: 14,
+                essential: true
             });
-
-            marker.setStyle(new ol.style.Style({
-                image: new ol.style.Circle({
-                    radius: 8,
-                    fill: new ol.style.Fill({ color: 'blue' }),
-                    stroke: new ol.style.Stroke({ color: 'white', width: 2 })
-                }),
-                text: new ol.style.Text({
-                    text: data.Nome,
-                    font: '12px Arial',
-                    fill: new ol.style.Fill({ color: '#000' }),
-                    offsetY: -15
-                })
-            }));
-
-            markerLayer.getSource().addFeature(marker);
         }
-
-        // Funzione per caricare i dati di tutte le stazioni
-        async function loadStations() {
-            const stationUrls = [
-                "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
-                "https://meteofontanamurata.altervista.org/scraping/tutte/aliavpalermo.php"
-            ];
-
-            for (const url of stationUrls) {
-                try {
-                    const response = await fetch(url);
-                    const station = await response.json();
-                    createMarker(station);
-                } catch (error) {
-                    console.error(`Errore nel caricamento dei dati dalla stazione ${url}:`, error);
-                }
-            }
-        }
-
-        // Avvia il caricamento delle stazioni
-        loadStations();
     </script>
 </body>
 </html>
