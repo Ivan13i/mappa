@@ -65,73 +65,71 @@
     <div id="mappa"></div>
 
     <script>
-        // Configurazione Mapbox
-        mapboxgl.accessToken = 'pk.eyJ1IjoiaXZhbjEzIiwiYSI6ImNsem1tcWIyeTBmeXcya3I0Mm9iMnduZ2kifQ.ohKNs_jXuoP88ApihpaxXA';
-        const mappa = new mapboxgl.Map({
-            container: 'mappa',
-            style: 'mapbox://styles/mapbox/streets-v11',
-            center: [13.7263, 37.7632], // Coordinate iniziali
-            zoom: 12
-        });
+        document.addEventListener("DOMContentLoaded", function() {
+            // Configurazione Mapbox
+            mapboxgl.accessToken = 'pk.eyJ1IjoiaXZhbjEzIiwiYSI6ImNsem1tcWIyeTBmeXcya3I0Mm9iMnduZ2kifQ.ohKNs_jXuoP88ApihpaxXA';
+            const mappa = new mapboxgl.Map({
+                container: 'mappa',
+                style: 'mapbox://styles/mapbox/streets-v11',
+                center: [13.7263, 37.7632], // Coordinate iniziali
+                zoom: 12
+            });
 
-        // Lista delle stazioni meteo (può essere caricata dinamicamente da un file o da un server)
-        const stazioni = [
-            {
-                Nome: "Alia Chianc.",
-                Latitudine: 37.7632,
-                Longitudine: 13.7263,
-                Altitudine: 710,
-                UrlDati: "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
-                LinkSito: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/stazioni-meteo/stazione-di-alia-contrada-chianchitelle/",
-                Immagine: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/wp-content/uploads/2024/08/alia-cda-chianchitelle-1536x2048.jpg"
-            },
-            {
-                Nome: "Alia V. Palermo",
-                Latitudine: 37.765,
-                Longitudine: 13.7,
-                Altitudine: 640,
-                UrlDati: "https://meteofontanamurata.altervista.org/scraping/tutte/aliavpalermo.php",
-                LinkSito: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/stazioni-meteo/stazione-di-alia-via-palermo/",
-                Immagine: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/wp-content/uploads/2024/08/alia-via-palermo-1536x2048.jpg"
-            }
-        ];
+            // Lista delle stazioni meteo
+            const stazioni = [
+                {
+                    Nome: "Alia Chianc.",
+                    Latitudine: 37.7632,
+                    Longitudine: 13.7263,
+                    Altitudine: 710,
+                    UrlDati: "https://meteofontanamurata.altervista.org/scraping/tutte/aliachianchitelle.php",
+                    LinkSito: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/stazioni-meteo/stazione-di-alia-contrada-chianchitelle/",
+                    Immagine: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/wp-content/uploads/2024/08/alia-cda-chianchitelle-1536x2048.jpg"
+                },
+                {
+                    Nome: "Alia V. Palermo",
+                    Latitudine: 37.765,
+                    Longitudine: 13.7,
+                    Altitudine: 640,
+                    UrlDati: "https://meteofontanamurata.altervista.org/scraping/tutte/aliavpalermo.php",
+                    LinkSito: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/stazioni-meteo/stazione-di-alia-via-palermo/",
+                    Immagine: "https://dev-meteo-alia-e-dintorni.pantheonsite.io/wp-content/uploads/2024/08/alia-via-palermo-1536x2048.jpg"
+                }
+            ];
 
-        // Crea i marker e aggiungili alla mappa
-        stazioni.forEach(stazione => {
-            // Aggiungi un marker
-            const marker = new mapboxgl.Marker()
-                .setLngLat([stazione.Longitudine, stazione.Latitudine])
-                .setPopup(
-                    new mapboxgl.Popup({ offset: 25 }) // Popup per il marker
+            // Crea i marker e aggiungili alla mappa
+            stazioni.forEach(stazione => {
+                const marker = new mapboxgl.Marker()
+                    .setLngLat([stazione.Longitudine, stazione.Latitudine])
+                    .setPopup(new mapboxgl.Popup({ offset: 25 })
                         .setHTML(`
                             <h3>${stazione.Nome}</h3>
                             <p>Altitudine: ${stazione.Altitudine} m</p>
                             <a href="${stazione.LinkSito}" target="_blank">Dettagli</a>
-                        `)
-                )
-                .addTo(mappa);
+                        `))
+                    .addTo(mappa);
 
-            // Aggiungi la stazione al menu laterale
-            const stazioneElemento = document.createElement('div');
-            stazioneElemento.className = 'stazione';
-            stazioneElemento.innerHTML = `
-                <h3>${stazione.Nome}</h3>
-                <img src="${stazione.Immagine}" alt="${stazione.Nome}">
-                <p>Altitudine: ${stazione.Altitudine} m</p>
-                <p><a href="${stazione.LinkSito}" target="_blank">Dettagli</a></p>
-                <button onclick="vaiAllaStazione(${stazione.Latitudine}, ${stazione.Longitudine})">Vai alla stazione</button>
-            `;
-            document.getElementById('lista-stazioni').appendChild(stazioneElemento);
-        });
-
-        // Funzione per spostare la mappa su una specifica stazione
-        function vaiAllaStazione(lat, lon) {
-            mappa.flyTo({
-                center: [lon, lat],
-                zoom: 14,
-                essential: true
+                // Aggiungi la stazione al menu laterale
+                const stazioneElemento = document.createElement('div');
+                stazioneElemento.className = 'stazione';
+                stazioneElemento.innerHTML = `
+                    <h3>${stazione.Nome}</h3>
+                    <img src="${stazione.Immagine}" alt="${stazione.Nome}">
+                    <p>Altitudine: ${stazione.Altitudine} m</p>
+                    <p><a href="${stazione.LinkSito}" target="_blank">Dettagli</a></p>
+                    <button onclick="vaiAllaStazione(${stazione.Latitudine}, ${stazione.Longitudine})">Vai alla stazione</button>
+                `;
+                document.getElementById('lista-stazioni').appendChild(stazioneElemento);
             });
-        }
+
+            function vaiAllaStazione(lat, lon) {
+                mappa.flyTo({
+                    center: [lon, lat],
+                    zoom: 14,
+                    essential: true
+                });
+            }
+        });
     </script>
 </body>
 </html>
